@@ -12,6 +12,10 @@ class BananaShell(object):
         self.builtins_map = {}
         for command in filter(lambda cmd: '_cmd_' in cmd, self.__dict__.copy()):
             self.builtins_map[command.split('_cmd_')[1]] = self.__dict__[command]
+
+        self.user_map = {
+            'example_f': (('ls', '-la'), ('echo', 'look at me'))
+        }
     
     @staticmethod
     def validate_python_version():
@@ -26,25 +30,44 @@ class BananaShell(object):
         line = ' '.join(args)
         write(1, (line+'\n\n').encode())
         sys.stdout.flush()
-    
-    def exec(self, command, args):
+
+    def run_user_function(self, body):
+        for tokens in body:
+            command = tokens[0]
+            self.attempt_exec(command, tokens)
+        
+        
+    def attempt_exec(self, cmd, args):
         '''Fork and replace process in memory.
         Wrapper around exec libc call (for preprocessing hooks).
         libc handles PATH for us here.'''
+
+        # Try to execute binary
         if not os.fork():
             try:
-                os.execvpe(command, args, self.env)
+                os.execvpe(cmd, args, self.env)
             except OSError:
-                sys.exit(1)
-            except ValueError:
-                sys.exit(1)
+                pass
+
+            try:
+                self.run_user_function(self.user_map[cmd])
+                sys.exit(0)
+            except KeyError:
+                pass
+            
+            try:
+                self.builtins_map[cmd](*args)
+                sys.exit(0)
+            except KeyError:
+                print(f'BananaShell: command not found: \'{cmd}\'')
+
+            sys.exit(1)
         
         try:
             os.wait()
             print()
-            return True
         except ChildProcessError:
-            return False
+            pass
 
     def __call__(self):
         while (line := self.readline(f'[{os.getcwd()}]\n$ ')) not in (self.readline.eof, 'exit\n'):
@@ -53,13 +76,11 @@ class BananaShell(object):
                 continue
             
             tokens = line.split('\n')[0].split(' ')
+            while '' in tokens:
+                tokens.remove('')
             command = tokens[0]
-
-            if not self.exec(command, tokens):
-                try:
-                    self.builtins_map[command](*arguments)
-                except KeyError:
-                    print(f'BananaShell: command not found: \'{command}\'\n')
+            
+            self.attempt_exec(command, tokens)
 
 class ReadlineFunctor(object):
     '''A *very* primitive readline implementation using

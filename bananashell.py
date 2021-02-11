@@ -27,24 +27,24 @@ class BananaShell(object):
         write(1, (line+'\n\n').encode())
         sys.stdout.flush()
     
-    def fork_and_exec(self, command, args):
+    def exec(self, command, args):
         '''Fork and replace process in memory.
         Wrapper around exec libc call (for preprocessing hooks).
         libc handles PATH for us here.'''
-        return self._fork_and_exec(command, args)
-
-    def _fork_and_exec(self, command, args):
         if not os.fork():
             try:
-                os.execve(command, args, self.env)
+                os.execvpe(command, args, self.env)
             except OSError:
                 sys.exit(1)
             except ValueError:
                 sys.exit(1)
+        
         try:
-            return os.wait()
+            os.wait()
+            print()
+            return True
         except ChildProcessError:
-            return None
+            return False
 
     def __call__(self):
         while (line := self.readline(f'[{os.getcwd()}]\n$ ')) not in (self.readline.eof, 'exit\n'):
@@ -55,12 +55,11 @@ class BananaShell(object):
             tokens = line.split('\n')[0].split(' ')
             command = tokens[0]
 
-            self.fork_and_exec(command, tokens)
-
-            try:
-                self.builtins_map[command](*arguments)
-            except KeyError:
-                print(f'BananaShell: command not found: \'{command}\'\n')
+            if not self.exec(command, tokens):
+                try:
+                    self.builtins_map[command](*arguments)
+                except KeyError:
+                    print(f'BananaShell: command not found: \'{command}\'\n')
 
 class ReadlineFunctor(object):
     '''A *very* primitive readline implementation using
@@ -95,7 +94,7 @@ class ReadlineFunctor(object):
     
     def __call__(self, prompt=''):
         '''Simulate a call to readline.'''
-        write(self.iomap[1], prompt.encode())
+        write(1, prompt.encode())
         while (c := self.getchar()) not in ('\n', self.eof):
             pass
         return self.getline()

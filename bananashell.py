@@ -8,14 +8,10 @@ class BananaShell(object):
         BananaShell.validate_python_version()
         self.env = os.environ.copy()
         self.readline = readline if readline else ReadlineFunctor()
+        self.builtins = {}
+        self.functions = {}
 
-        self.builtins_map = {}
-        for command in filter(lambda cmd: '_cmd_' in cmd, self.__dir__()):
-            self.builtins_map[command.split('_cmd_')[1]] = eval('self.' + command)
-
-        self.user_map = {
-            'example_f': (('ls', '-la'), ('echo', 'look at me'))
-        }
+        self.configure_builtins()
     
     @staticmethod
     def validate_python_version():
@@ -26,62 +22,126 @@ class BananaShell(object):
             msg = f'Your python version is {PY_MAJOR_VERSION}.{PY_MINOR_VERSION}, please update to at least python 3.8!\n\n'
             raise InvalidPythonException(msg)
 
-    def _cmd_echo(self, *args):
+    def configure_builtins(self):
+        for builtin in filter(lambda builtin: '_cmd_' in builtin, self.__dir__()):
+            self.builtins[builtin.split('_cmd_')[1]] = eval('self.' + builtin)
+        
+        
+    def _cmd_echo(self, args):
         line = ' '.join(args)
         write(1, (line+'\n\n').encode())
         sys.stdout.flush()
 
-    def run_user_function(self, body):
-        for tokens in body:
-            command = tokens[0]
-            self.attempt_exec(command, tokens)
+    def _cmd_def(self, args):
+        if args[2] == '{':
+            readline = ReadlineFunctor()
+            while (line := readline('')) not in (readline.eof, '}\n'):
+                if line == '\n':
+                    continue
+                name = args[1]
+                cmd = Command(line)
+                self.functions[name] = self.functions[name] + [cmd] if name in self.functions else [cmd]
+
+    def parse_function(self, func):
+        for cmd in func:
+            self.run(cmd)
+                
+    def run(self, cmd):
+        if cmd.in_env():
+            self.exec(cmd)
+            return
+            
+        try:
+            self.parse_function(self.functions[cmd.name])
+            return
+        except KeyError:
+            pass
+        except IndexError:
+            pass
+            
+        try:
+            self.builtins[cmd.name](cmd.args)
+        except KeyError:
+            print(f'BananaShell: command not found: \'{cmd}\'')
         
         
-    def attempt_exec(self, cmd, args):
+    def exec(self, cmd):
         '''Fork and replace process in memory.
         Wrapper around exec libc call (for preprocessing hooks).
         libc handles PATH for us here.'''
-
+        
         # Try to execute binary
         if not os.fork():
             try:
-                os.execvpe(cmd, args, self.env)
+                os.execvpe(cmd.name, cmd.args, os.environ)
             except OSError:
                 pass
-
-            try:
-                self.run_user_function(self.user_map[cmd])
-                sys.exit(0)
-            except KeyError:
-                pass
-            
-            try:
-                self.builtins_map[cmd](*args)
-                sys.exit(0)
-            except KeyError:
-                print(f'BananaShell: command not found: \'{cmd}\'')
-
             sys.exit(1)
         
         try:
             os.wait()
-            print()
         except ChildProcessError:
             pass
-
+        
+        
     def __call__(self):
         while (line := self.readline(f'[{os.getcwd()}]\n$ ')) not in (self.readline.eof, 'exit\n'):
             if line == '\n':
                 print()
                 continue
-            
-            tokens = line.split('\n')[0].split(' ')
-            while '' in tokens:
-                tokens.remove('')
-            command = tokens[0]
-            
-            self.attempt_exec(command, tokens)
+            self.run(Command(line))
+            print()
 
+
+class Command(object):
+    def __init__(self, line):
+        line = self.sanitize(line)
+        tokens = line.split('\n')[0].split(' ')
+        self.name = tokens[0]
+        self.args = tokens
+
+    def in_env(self):
+        try:
+            for base in reversed(os.environ['PATH'].split(':')):
+                if self.name in os.listdir(base):
+                    return base + '/' + self.name
+        except KeyError:
+            pass
+        return None
+
+    def can_execute(self):
+        try:
+            owner, group, mask = self.stat()
+            exec_mask = [x % 2 for x in mask]
+            if exec_mask[2]:
+                return True
+            if group in os.getgroups() and exec_mask[1]:
+                return True
+            if owner == os.getuid() and exec_mask[0]:
+                return True
+        except Exception:
+            pass
+        return False
+
+    def stat(self):
+        stat = os.stat(self.in_env())
+        owner = stat.st_uid
+        group = stat.st_gid
+        mask = [int(x) for x in oct(stat.st_mode)[4:]]
+        return owner, group, mask
+
+    def sanitize(self, line):
+        for invalid in ('\t'):
+            line = ''.join(line.split(invalid))
+        return line
+
+    def __repr__(self):
+        return ' '.join(self.args)
+
+    def __str__(self):
+        return repr(self)
+        
+                
 class ReadlineFunctor(object):
     '''A *very* primitive readline implementation using
     a functor to simulate static allocation in a C module.'''

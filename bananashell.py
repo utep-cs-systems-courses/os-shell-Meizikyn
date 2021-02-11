@@ -10,8 +10,8 @@ class BananaShell(object):
         self.readline = readline if readline else ReadlineFunctor()
 
         self.builtins_map = {}
-        for command in filter(lambda cmd: '_cmd_' in cmd, self.__dict__.copy()):
-            self.builtins_map[command.split('_cmd_')[1]] = self.__dict__[command]
+        for command in filter(lambda cmd: '_cmd_' in cmd, self.__dir__()):
+            self.builtins_map[command.split('_cmd_')[1]] = eval('self.' + command)
 
         self.user_map = {
             'example_f': (('ls', '-la'), ('echo', 'look at me'))

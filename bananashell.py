@@ -67,13 +67,12 @@ class BananaShell(object):
         
     def exec(self, cmd):
         '''Fork and replace process in memory.
-        Wrapper around exec libc call (for preprocessing hooks).
-        libc handles PATH for us here.'''
+        Wrapper around exec libc call (for preprocessing hooks).'''
         
         # Try to execute binary
         if not os.fork():
             try:
-                os.execvpe(cmd.name, cmd.args, os.environ)
+                os.execve(cmd.name, cmd.args, os.environ)
             except OSError:
                 pass
             sys.exit(1)

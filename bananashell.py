@@ -72,9 +72,9 @@ class BananaShell(object):
         # Try to execute binary
         if not os.fork():
             try:
-                os.execve(cmd.name, cmd.args, os.environ)
-            except OSError:
-                pass
+                os.execve(cmd.in_env(), cmd.args, os.environ)
+            except OSError as e:
+                print('OSError:', e)
             sys.exit(1)
         
         try:

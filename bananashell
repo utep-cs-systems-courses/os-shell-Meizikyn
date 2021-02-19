@@ -62,7 +62,7 @@ class BananaShell(object):
         try:
             self.builtins[cmd.name](cmd.args)
         except KeyError:
-            print(f'BananaShell: command not found: \'{cmd}\'')
+            print(f'BananaShell: command not found: \'{cmd.name}\'')
         
         
     def exec(self, cmd):

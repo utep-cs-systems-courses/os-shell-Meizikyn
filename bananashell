@@ -48,7 +48,7 @@ class BananaShell(object):
         try:
             key,val = ' '.join(args[1:]).split('=')
             if not key in valid_ident:
-                return
+                raise Exception(f'not valid in this context: {key}')
             os.environ[key] = val
         except Exception as error:
             os.write(1, f'export: {error}\n'.encode())

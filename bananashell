@@ -25,6 +25,22 @@ class BananaShell(object):
     def configure_builtins(self):
         for builtin in filter(lambda builtin: '_cmd_' in builtin, self.__dir__()):
             self.builtins[builtin.split('_cmd_')[1]] = eval('self.' + builtin)
+
+    def _cmd_cd(self, args):
+        try:
+            # Simulate ZSH-like behavior
+            if len(args) == 1 or args[-1] == '~':
+                home = os.environ['HOME'] if 'HOME' in os.environ else '/'
+                os.chdir(home)
+                os.environ['PWD'] = home
+                return
+                
+            path = args[-1]
+            os.chdir(path)
+            os.environ['PWD'] = args[-1]
+            
+        except Exception as error:
+            os.write(2, f'cd: {error}\n'.encode())
         
         
     def _cmd_echo(self, args):

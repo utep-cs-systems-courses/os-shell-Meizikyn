@@ -42,12 +42,17 @@ class BananaShell(object):
         except Exception as error:
             os.write(2, f'cd: {error}\n'.encode())
         
+    def _cmd_export(self, args):
+        valid_ident = '_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
         
-    def _cmd_echo(self, args):
-        line = ' '.join(args)
-        write(1, (line+'\n\n').encode())
-        sys.stdout.flush()
-
+        try:
+            key,val = ' '.join(args[1:]).split('=')
+            if not key in valid_ident:
+                return
+            os.environ[key] = val
+        except Exception as error:
+            os.write(1, f'export: {error}\n'.encode())
+            
     def _cmd_def(self, args):
         if args[2] == '{':
             readline = ReadlineFunctor()
@@ -109,11 +114,14 @@ class BananaShell(object):
 
 
 class Command(object):
-    def __init__(self, line):
+    def __init__(self, line, support_evars=True):
         line = self.sanitize(line)
         tokens = line.split('\n')[0].split(' ')
         self.name = tokens[0]
         self.args = tokens
+
+        if support_evars:
+            self.expand_tokens()
 
     def in_env(self):
         try:
@@ -123,6 +131,12 @@ class Command(object):
         except KeyError:
             pass
         return None
+
+    def expand_tokens(self):
+        for idx,token in enumerate(self.args):
+            if token[0] == '$':
+                expansion = os.environ[token[1:]] if token[1:] in os.environ else ''
+                self.args[idx] = expansion
 
     def can_execute(self):
         try:

@@ -231,7 +231,7 @@ class Command(object):
             self.args.remove('')
 
     def __repr__(self):
-        return ' '.join(self.args)
+        return 'Command: <' + ' '.join(self.args) + '>'
 
     def __str__(self):
         return repr(self)

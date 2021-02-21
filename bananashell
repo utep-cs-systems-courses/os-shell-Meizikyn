@@ -115,14 +115,15 @@ class BananaShell(object):
 
 class Command(object):
     def __init__(self, line, iomap=None, support_evars=True):
-        line = self.sanitize(line)
         tokens = line.split('\n')[0].split(' ')
-        self.name = tokens[0]
         self.args = tokens
         self.iomap = iomap
+        self.sanitize()
 
         if support_evars:
             self.expand_tokens()
+
+        self.name = self.args[0]
 
     def exec(self):
         '''Fork and replace process in memory.
@@ -141,7 +142,8 @@ class Command(object):
                 if pipe_out:
                     os.dup2(pipe_out, 0)
                 if pipe_in:
-                    os.dup2(pipe_in, 1)    
+                    os.dup2(pipe_in, 1)
+                print(self.in_env())
                 os.execve(self.in_env(), self.args, os.environ)
             except OSError as error:
                 print('OSError:', error)
@@ -165,7 +167,7 @@ class Command(object):
         except KeyError:
             pass
         return None
-
+    
     def expand_tokens(self):
         for idx,token in enumerate(self.args):
             if token[0] == '$':
@@ -193,10 +195,13 @@ class Command(object):
         mask = [int(x) for x in oct(stat.st_mode)[4:]]
         return owner, group, mask
 
-    def sanitize(self, line):
-        for invalid in ('\t'):
-            line = ''.join(line.split(invalid))
-        return line
+    def sanitize(self):
+        invalids = ('\t', ' ')
+        for purge in invalids:
+            for idx, token in enumerate(self.args):
+                self.args[idx] = ''.join(token.split(purge))
+        while '' in self.args:
+            self.args.remove('')
 
     def __repr__(self):
         return ' '.join(self.args)

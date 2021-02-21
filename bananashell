@@ -126,7 +126,15 @@ class Directive(object):
         if not '|' in line:
             self.commands = [Command(line)]
             return
+        
+        commands = [Command(token) for token in line.split('|')]
+        for idx,tmp in enumerate(commands[:-1]):
+            r, w = os.pipe()
+            commands[idx].iomap['w'] = w
+            commands[idx+1].iomap['r'] = r
 
+        self.commands = commands
+            
 
     def __iter__(self):
         return iter(self.commands)

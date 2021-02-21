@@ -165,7 +165,6 @@ class Command(object):
                     os.dup2(pipe_out, 0)
                 if pipe_in:
                     os.dup2(pipe_in, 1)
-                print(self.in_env())
                 os.execve(self.in_env(), self.args, os.environ)
             except OSError as error:
                 print('OSError:', error)

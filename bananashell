@@ -72,7 +72,7 @@ class BananaShell(object):
         for cmd in directive:        
             if cmd.in_env():
                 cmd.exec()
-                return
+                continue
              
             try:
                 self.parse_function(self.functions[cmd.name])

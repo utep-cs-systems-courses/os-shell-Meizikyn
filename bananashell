@@ -67,23 +67,27 @@ class BananaShell(object):
         for cmd in func:
             self.run(cmd)
                 
-    def run(self, cmd):
-        if cmd.in_env():
-            self.exec(cmd)
-            return
+    def run(self, directive):
+
+        for cmd in directive:        
+            if cmd.in_env():
+                cmd.exec()
+                return
+             
+            try:
+                self.parse_function(self.functions[cmd.name])
+                return
+            except KeyError:
+                pass
+            except IndexError:
+                pass
+             
+            try:
+                self.builtins[cmd.name](cmd.args)
+            except KeyError:
+                print(f'BananaShell: command not found: \'{cmd.name}\'')
+                return
             
-        try:
-            self.parse_function(self.functions[cmd.name])
-            return
-        except KeyError:
-            pass
-        except IndexError:
-            pass
-            
-        try:
-            self.builtins[cmd.name](cmd.args)
-        except KeyError:
-            print(f'BananaShell: command not found: \'{cmd.name}\'')
         
         
     def exec(self, cmd):
@@ -110,9 +114,27 @@ class BananaShell(object):
                 os.write(1,'\n'.encode())
                 continue
 
-            self.run(Command(line))
+            self.run(Directive(line))
             os.write(1,'\n'.encode())
 
+
+            
+class Directive(object):
+    def __init__(self, line):
+        self.commands = []
+
+        if not '|' in line:
+            self.commands = [Command(line)]
+            return
+
+    def __call__(self):
+        [cmd.exec() for cmd in self.commands]
+
+    def __iter__(self):
+        return iter(self.commands)
+        
+        
+            
 class Command(object):
     def __init__(self, line, iomap={}, support_evars=True):
         tokens = line.split('\n')[0].split(' ')

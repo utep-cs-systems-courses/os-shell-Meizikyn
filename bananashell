@@ -134,10 +134,10 @@ class Directive(object):
         
             
 class Command(object):
-    def __init__(self, line, iomap={}, support_evars=True):
+    def __init__(self, line, support_evars=True):
         tokens = line.split('\n')[0].split(' ')
         self.args = tokens
-        self.iomap = iomap
+        self.iomap = {}
         self.sanitize()
 
         if support_evars:

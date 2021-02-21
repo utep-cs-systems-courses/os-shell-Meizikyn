@@ -107,11 +107,11 @@ class BananaShell(object):
     def __call__(self):
         while (line := self.readline(f'[{os.getcwd()}]\n$ ')) not in (self.readline.eof, 'exit\n'):
             if line == '\n':
-                print()
+                os.write(1,'\n'.encode())
                 continue
-            self.run(Command(line))
-            print()
 
+            self.run(Command(line))
+            os.write(1,'\n'.encode())
 
 class Command(object):
     def __init__(self, line, iomap={}, support_evars=True):

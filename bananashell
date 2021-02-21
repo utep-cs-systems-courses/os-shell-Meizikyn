@@ -114,15 +114,49 @@ class BananaShell(object):
 
 
 class Command(object):
-    def __init__(self, line, support_evars=True):
+    def __init__(self, line, iomap=None, support_evars=True):
         line = self.sanitize(line)
         tokens = line.split('\n')[0].split(' ')
         self.name = tokens[0]
         self.args = tokens
+        self.iomap = iomap
 
         if support_evars:
             self.expand_tokens()
 
+    def exec(self):
+        '''Fork and replace process in memory.
+        Wrapper around exec libc call (for preprocessing hooks).'''
+
+        pipe_out, pipe_in = (None, None)
+        
+        if 'r' in self.iomap:
+            pipe_out = self.iomap['r']
+        if 'w' in self.iomap:
+            pipe_in = self.iomap['w']
+        
+        # Try to execute binary
+        if not os.fork():
+            try:
+                if pipe_out:
+                    os.dup2(pipe_out, 0)
+                if pipe_in:
+                    os.dup2(pipe_in, 1)    
+                os.execve(self.in_env(), self.args, os.environ)
+            except OSError as error:
+                print('OSError:', error)
+            sys.exit(1)
+        
+        try:
+            if pipe_out != None:
+                os.close(pipe_out)
+            if pipe_in != None:
+                os.close(pipe_in)
+
+            os.wait()
+        except ChildProcessError:
+            pass
+            
     def in_env(self):
         try:
             for base in reversed(os.environ['PATH'].split(':')):

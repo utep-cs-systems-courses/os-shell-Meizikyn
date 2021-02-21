@@ -127,8 +127,6 @@ class Directive(object):
             self.commands = [Command(line)]
             return
 
-    def __call__(self):
-        [cmd.exec() for cmd in self.commands]
 
     def __iter__(self):
         return iter(self.commands)

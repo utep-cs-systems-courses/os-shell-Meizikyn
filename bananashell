@@ -68,7 +68,6 @@ class BananaShell(object):
             self.run(cmd)
                 
     def run(self, directive):
-
         for cmd in directive:        
             if cmd.in_env():
                 cmd.exec()
@@ -95,38 +94,81 @@ class BananaShell(object):
                 os.write(1,'\n'.encode())
                 continue
 
-            self.run(Directive(line))
+            directive = Directive(line)
+            self.run(directive)
             os.write(1,'\n'.encode())
 
 
-            
 class Directive(object):
     def __init__(self, line):
-        self.commands = []
-
-        if not '|' in line:
-            self.commands = [Command(line)]
-            return
-        
-        commands = [Command(token) for token in line.split('|')]
-        for idx,tmp in enumerate(commands[:-1]):
-            r, w = os.pipe()
-            commands[idx].iomap['w'] = w
-            commands[idx+1].iomap['r'] = r
-
-        self.commands = commands
-            
+        self.files = []
+        line = line.split('\n')[0]
+        tokens = self.tokenize(line)
+        self.commands = self.configure(tokens)
 
     def __iter__(self):
         return iter(self.commands)
-        
-        
-            
+
+    def tokenize(self, line, tokens=None):
+        if not tokens:
+            tokens = []
+        for char in line:
+            if char in ('|', '>', '<'):
+                idx = line.index(char)
+                left = line[:idx]
+                right = line[idx+1:]
+                tokens += [left, char]
+                return self.tokenize(right, tokens)
+        return tokens + [line]
+
+    def configure(self, tokens):
+        if not any(operator in tokens for operator in ('|', '<', '>')):
+            return [Command(tokens[0])]
+        for idx, token in enumerate(tokens):
+            if token == '|':
+                tokens[idx-1] = (left := Command(tokens[idx-1]))
+                tokens[idx+1] = (right := Command(tokens[idx+1]))
+                r, w = os.pipe()
+                os.set_inheritable(r,True)
+                os.set_inheritable(w,True)
+                left.iomap += [(w,1)]
+                right.iomap += [(r,0)]
+                self.files += [r,w]
+            elif token == '>':
+                tokens[idx-1] = (left := Command(tokens[idx-1]))
+                tokens[idx+1] = (right := self.sanitize(tokens[idx+1]))
+                file_to = os.open(right, os.O_WRONLY | os.O_CREAT, 0o644)
+                left.iomap += [(file_to,1)]
+                self.files += [file_to]
+            elif token == '<':
+                tokens[idx-1] = (left := Command(tokens[idx-1]))
+                tokens[idx+1] = (right := self.sanitize(tokens[idx+1]))
+                file_from = os.open(right, os.O_RDONLY)
+                left.iomap += [(file_from,0)]
+                self.files += [file_from]
+        return [token for token in tokens if isinstance(token, Command)]
+
+    def sanitize(self, token):
+        invalids = ('\t', ' ')
+        for purge in invalids:
+            token = ''.join(token.split(purge))
+        return token
+
+
 class Command(object):
     def __init__(self, line, support_evars=True):
+
+        # Glorified move constructor
+        if isinstance(line, Command):
+            self.args = line.args
+            self.iomap = line.iomap
+            self.name = line.name
+            del(line)
+            return
+            
         tokens = line.split('\n')[0].split(' ')
         self.args = tokens
-        self.iomap = {}
+        self.iomap = []
         self.sanitize()
 
         if support_evars:
@@ -137,32 +179,20 @@ class Command(object):
     def exec(self):
         '''Fork and replace process in memory.
         Wrapper around exec libc call (for preprocessing hooks).'''
-
-        pipe_out, pipe_in = (None, None)
-        
-        if 'r' in self.iomap:
-            pipe_out = self.iomap['r']
-        if 'w' in self.iomap:
-            pipe_in = self.iomap['w']
-        
+      
         # Try to execute binary
         if not os.fork():
             try:
-                if pipe_out:
-                    os.dup2(pipe_out, 0)
-                if pipe_in:
-                    os.dup2(pipe_in, 1)
+                for config in self.iomap:
+                    os.dup2(*config)
                 os.execve(self.in_env(), self.args, os.environ)
             except OSError as error:
                 os.write(1, f'OSError: {error}\n')
             sys.exit(1)
         
         try:
-            if pipe_out != None:
-                os.close(pipe_out)
-            if pipe_in != None:
-                os.close(pipe_in)
-
+            for config in self.iomap:
+                os.close(config[0])
             pid, status = os.wait()
             if status:
                 os.write(1, f'{self}: returned with exit code {status}\n'.encode())

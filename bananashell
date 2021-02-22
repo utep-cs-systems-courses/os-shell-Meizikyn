@@ -87,25 +87,6 @@ class BananaShell(object):
             except KeyError:
                 print(f'BananaShell: command not found: \'{cmd.name}\'')
                 return
-            
-        
-        
-    def exec(self, cmd):
-        '''Fork and replace process in memory.
-        Wrapper around exec libc call (for preprocessing hooks).'''
-        
-        # Try to execute binary
-        if not os.fork():
-            try:
-                os.execve(cmd.in_env(), cmd.args, os.environ)
-            except OSError as e:
-                print('OSError:', e)
-            sys.exit(1)
-        
-        try:
-            os.wait()
-        except ChildProcessError:
-            pass
         
         
     def __call__(self):

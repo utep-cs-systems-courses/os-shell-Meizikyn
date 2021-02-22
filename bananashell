@@ -163,7 +163,9 @@ class Command(object):
             if pipe_in != None:
                 os.close(pipe_in)
 
-            os.wait()
+            pid, status = os.wait()
+            if status:
+                os.write(1, f'{self}: returned with exit code {status}\n'.encode())
         except ChildProcessError:
             pass
             

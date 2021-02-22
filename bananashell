@@ -100,7 +100,6 @@ class BananaShell(object):
                 os.kill(pid, 0)
             except:
                 os.write(1, f'[{jid}] {pid} terminated {name}\n'.encode())
-                sys.stdout.flush()
                 jobs.remove(job)
         self.jobs = jobs
         

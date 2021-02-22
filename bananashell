@@ -154,7 +154,7 @@ class Command(object):
                     os.dup2(pipe_in, 1)
                 os.execve(self.in_env(), self.args, os.environ)
             except OSError as error:
-                print('OSError:', error)
+                os.write(1, f'OSError: {error}\n')
             sys.exit(1)
         
         try:

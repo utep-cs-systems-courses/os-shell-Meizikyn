@@ -70,9 +70,10 @@ class BananaShell(object):
     def run(self, directive):
         for cmd in directive:        
             if cmd.in_env():
-                pid = cmd.exec(len(self.jobs) + 1)
+                jid = len(self.jobs) + 1
+                pid = cmd.exec(jid)
                 if not pid == None:
-                    self.jobs += [(pid, cmd.name)]
+                    self.jobs += [(jid, pid, cmd.name)]
                     print(self.jobs)
                 continue
              
@@ -91,13 +92,13 @@ class BananaShell(object):
                 return
 
     def check_jobs(self):
-        for idx,job in enumerate(self.jobs):
-            pid, name = job
+        for job in self.jobs:
+            jid, pid, name = job
             try:
                 os.waitpid(pid, os.WNOHANG)
                 os.kill(pid, 0)
             except:
-                os.write(1, f'[{idx+1}] {pid} terminated {name}\n'.encode())
+                os.write(1, f'[{jid}] {pid} terminated {name}\n'.encode())
                 sys.stdout.flush()
                 self.jobs.remove(job)
         

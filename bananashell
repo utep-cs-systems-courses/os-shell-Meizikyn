@@ -342,13 +342,12 @@ class AntiBuffer(object):
 
     def __exit__(self, exc_type, exc_value, traceback):
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.termconfig)
-        
-        
-        
+
     
 class InvalidPythonException(Exception):
     def __init__(*args, **kwargs):
         super.__init__(*args, **kwargs)
+
 
 if __name__ == '__main__':
     BananaShell()()

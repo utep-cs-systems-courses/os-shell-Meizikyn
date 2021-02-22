@@ -89,7 +89,7 @@ class BananaShell(object):
         
         
     def __call__(self):
-        while (line := self.readline(f'[{os.getcwd()}]\n$ ')) not in (self.readline.eof, 'exit\n'):
+        while (line := self.readline(f'[{os.getcwd()}]\n$ ' if not 'PS1' in os.environ else os.environ['PS1'])) not in (self.readline.eof, 'exit\n'):
             if line == '\n':
                 os.write(1,'\n'.encode())
                 continue

@@ -71,9 +71,7 @@ class BananaShell(object):
         for cmd in directive:        
             if cmd.in_env():
                 jid = len(self.jobs) + 1
-                pid = cmd.exec()
-                if not pid == None:
-                    self.jobs += [(jid, pid, cmd.name)]
+                cmd.exec(self.jobs)
                 continue
              
             try:
@@ -205,7 +203,7 @@ class Command(object):
 
         self.name = self.args[0]
 
-    def exec(self):
+    def exec(self, jobs):
         '''Fork and replace process in memory.
         Wrapper around exec libc call (for preprocessing hooks).'''
       
@@ -225,13 +223,21 @@ class Command(object):
                 os.close(config[0])
 
             if self.plane == 'fg':
-                siginfo = os.waitid(os.P_PID, pid, os.WEXITED)
-                if siginfo.si_status:
-                    os.write(1, f'{self}: returned with exit code {siginfo.si_status}\n'.encode())
-                return None
-            
-            _pid, status = os.waitpid(pid, os.WNOHANG)
-            return pid
+                _pid, status = os.waitpid(pid, 0)
+                if status:
+                    os.write(1, f'{self}: returned with exit code {status}\n'.encode())
+                return
+
+            jid = len(jobs) + 1
+            for nil in range(60000):
+                nil + 1
+            os.waitpid(pid, os.WNOHANG)
+            try:
+                os.kill(pid, 0)
+                jobs += [(jid, pid, self.name)]
+            except:
+                os.write(1, f'[{jid}] {pid} terminated {self.name}'.encode())
+                
         except ChildProcessError as error:
             os.write(1, f'unknown error: {error}\n'.encode())
             

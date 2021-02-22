@@ -71,10 +71,9 @@ class BananaShell(object):
         for cmd in directive:        
             if cmd.in_env():
                 jid = len(self.jobs) + 1
-                pid = cmd.exec(jid)
+                pid = cmd.exec()
                 if not pid == None:
                     self.jobs += [(jid, pid, cmd.name)]
-                    print(self.jobs)
                 continue
              
             try:
@@ -206,7 +205,7 @@ class Command(object):
 
         self.name = self.args[0]
 
-    def exec(self, job_id):
+    def exec(self):
         '''Fork and replace process in memory.
         Wrapper around exec libc call (for preprocessing hooks).'''
       

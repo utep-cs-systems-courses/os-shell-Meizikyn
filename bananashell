@@ -92,6 +92,7 @@ class BananaShell(object):
                 return
 
     def check_jobs(self):
+        jobs = self.jobs.copy()
         for job in self.jobs:
             jid, pid, name = job
             try:
@@ -100,7 +101,8 @@ class BananaShell(object):
             except:
                 os.write(1, f'[{jid}] {pid} terminated {name}\n'.encode())
                 sys.stdout.flush()
-                self.jobs.remove(job)
+                jobs.remove(job)
+        self.jobs = jobs
         
         
     def __call__(self):

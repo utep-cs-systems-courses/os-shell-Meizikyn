@@ -224,7 +224,7 @@ class Command(object):
                     os.dup2(*config)
                 os.execve(self.in_env(), self.args, os.environ)
             except OSError as error:
-                os.write(1, f'OSError: {error}\n')
+                os.write(1, f'OSError: {error}\n'.encode())
             sys.exit(1)
         
         try:

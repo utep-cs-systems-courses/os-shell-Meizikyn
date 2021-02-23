@@ -1,5 +1,5 @@
-:banana: Banana Shell
-==============
+:banana: Banana Shell :shell:
+================
 
 It does the stuff.
 

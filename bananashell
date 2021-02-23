@@ -137,41 +137,50 @@ class Directive(object):
         return [token for token in tokens if token != '']
 
     def configure(self, tokens):
-        if not any(operator in tokens for operator in ('|', '<', '>', '&')):
+        operators = ('|', '<', '>', '&')
+        if not any(operator in tokens for operator in operators):
             return [Command(tokens[0])]
+        commands = [token for token in tokens]
         try:
-            for idx, token in enumerate(tokens):
+            for token in tokens:
                 if token == '|':
-                    tokens[idx-1] = (left := Command(tokens[idx-1]))
-                    tokens[idx+1] = (right := Command(tokens[idx+1]))
+                    idx = commands.index(token)
+                    commands[idx-1] = left = Command(commands[idx-1])
+                    commands[idx+1] = right = Command(commands[idx+1])
                     r, w = os.pipe()
                     os.set_inheritable(r,True)
                     os.set_inheritable(w,True)
                     left.iomap += [(w,1)]
                     right.iomap += [(r,0)]
                     self.files += [r,w]
+                    commands.pop(idx)
                 elif token == '>':
-                    tokens[idx-1] = (left := Command(tokens[idx-1]))
-                    tokens[idx+1] = (right := self.sanitize(tokens[idx+1]))
+                    idx = commands.index(token)
+                    commands[idx-1] = left = Command(commands[idx-1])
+                    right = self.sanitize(commands[idx+1])
                     file_to = os.open(right, os.O_WRONLY | os.O_CREAT, 0o644)
                     left.iomap += [(file_to,1)]
                     self.files += [file_to]
+                    (commands.pop(idx), commands.pop(idx))
                 elif token == '<':
-                    tokens[idx-1] = (left := Command(tokens[idx-1]))
-                    tokens[idx+1] = (right := self.sanitize(tokens[idx+1]))
+                    idx = commands.index(token)
+                    commands[idx-1] = left = Command(commands[idx-1])
+                    right = self.sanitize(commands[idx+1])
                     try:
                         file_from = os.open(right, os.O_RDONLY)
                     except FileNotFoundError as error:
                         os.write(1, f'cannot open file specified: {right}\n')
                     left.iomap += [(file_from,0)]
                     self.files += [file_from]
+                    (commands.pop(idx), commands.pop(idx))
                 elif token == '&':
-                    tokens[idx-1] = (task := Command(tokens[idx-1]))
+                    commands[idx-1] = task = Command(commands[idx-1])
                     task.plane = 'bg'
+                    commands.pop(idx)
                     
         except Exception as error:
             write(1, f'unkown error: {error}\n')
-        return [token for token in tokens if isinstance(token, Command)]
+        return [token for token in commands if isinstance(token, Command)]
 
     def sanitize(self, token):
         invalids = ('\t', ' ')
